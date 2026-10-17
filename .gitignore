@@ -1,0 +1,9 @@
+node_modules/
+out/
+.DS_Store
+
+# narrate の出力（take から再生成できる）
+public/audio/
+
+# 録音テイク（本人の声）。git には入れないので別途バックアップする
+videos/*/take.*
