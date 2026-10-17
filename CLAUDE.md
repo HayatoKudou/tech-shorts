@@ -36,6 +36,13 @@
 - 乱数は remotion の `random(seed)`。`Math.random()` や CSS の transition/animation は使わない
 - 2本以上の動画で同じ部品を書いたら `src/kit/` に移す。それまでは動画側に置く
 
+## 効果音
+- `<Sfx name at delay />` に、対応する `enter(at, { delay })` と同じ値を渡す（`<svg>` の外に置く）
+- pop = 要素が出る、tick = 文字・数字が出る、miss = ×・失敗、done = 正解・完了。鳴らしすぎない（1文に1〜2回）
+- 音は `pipeline/sfx.ts` で ffmpeg 合成した自作音（`public/sfx/`、git 管理）。音色を変えたら `npm run sfx`。
+  音量はファイル側でナレーションより約10dB下にそろえてあるので、`volume` は基本触らない
+- 外部の素材は使うなら git に入れない（公開リポジトリなので再配布になる）。入手元 URL と規約を記録する
+
 ## セーフゾーン
 上 260 / 下 480 / 左 72 / 右 192 px（`SAFE`）。字幕と重要な要素はこの中。通常投稿の公式値は無いので、
 広告テンプレートの値のうち最も厳しいものを採った近似。中心は x=480 になる。
@@ -45,6 +52,7 @@ Studio の props で `guides: true` にすると枠を重ねて確認できる�
 - `npm run dev` Remotion Studio
 - `npm run narrate -- <id> [--draft]` ナレーション → `public/audio/<id>/`（git 管理外）
 - `npm run render -- <id>` → `out/<id>.mp4`（h264, crf 18, bt709）
+- `npm run sfx` 効果音を合成し直す → `public/sfx/`
 - `npm run typecheck`
 - 新しい動画は `videos/<id>/` に script.ts と Visuals.tsx を作り、`src/Root.tsx` の `videos` に1行足す
 

@@ -2,6 +2,7 @@ import React from "react";
 import { random } from "remotion";
 import { draw, useBeat } from "../../src/kit/beat";
 import { FONT } from "../../src/kit/font";
+import { Sfx } from "../../src/kit/Sfx";
 import { color, STAGE_BOX } from "../../src/kit/theme";
 
 // バージョン1 の QR は 21×21 モジュール
@@ -91,51 +92,72 @@ const stainPath = (() => {
   return `M ${mid(points.length - 1)} ${curves} Z`;
 })();
 
+// 「元に戻せる」のチェック。QR の右上の余白に描く
+const CHECK = { x: X0 + SIZE + 20, y: Y0 + 30 };
+
 export const Visuals: React.FC = () => {
   const { enter } = useBeat();
   const data = enter(1);
   const correction = enter(1, { delay: 8 });
   const stain = enter(2, { frames: 12 });
   const label = enter(2, { delay: 10, frames: 10 });
+  const check = enter(2, { delay: 28, frames: 12 });
 
   return (
-    <svg width={STAGE_BOX.width} height={STAGE_BOX.height}>
-      <g shapeRendering="crispEdges" fill={color.ink}>
-        {modules.map((m) => (
-          <rect key={`${m.x}-${m.y}`} x={X0 + m.x * CELL} y={Y0 + m.y * CELL} width={CELL} height={CELL} />
-        ))}
-      </g>
-
-      <Chip x={108} label="データ" tint={color.ink} p={data} />
-      <text
-        x={STAGE_BOX.width / 2}
-        y={CHIP_Y + CHIP_H / 2}
-        textAnchor="middle"
-        dominantBaseline="central"
-        fontFamily={FONT}
-        fontWeight={700}
-        fontSize={56}
-        fill={color.muted}
-        opacity={correction}
-      >
-        ＋
-      </text>
-      <Chip x={448} label="誤り訂正" tint={color.sub} p={correction} />
-
-      <g transform={`translate(${STAIN.cx} ${STAIN.cy}) scale(${stain})`}>
-        <path d={stainPath} fill={color.accent} />
+    <>
+      <Sfx name="pop" at={1} />
+      <Sfx name="pop" at={1} delay={8} />
+      <Sfx name="miss" at={2} />
+      <Sfx name="tick" at={2} delay={10} />
+      <Sfx name="done" at={2} delay={28} />
+      <svg width={STAGE_BOX.width} height={STAGE_BOX.height}>
+        <g shapeRendering="crispEdges" fill={color.ink}>
+          {modules.map((m) => (
+            <rect key={`${m.x}-${m.y}`} x={X0 + m.x * CELL} y={Y0 + m.y * CELL} width={CELL} height={CELL} />
+          ))}
+        </g>
+  
+        <Chip x={108} label="データ" tint={color.ink} p={data} />
         <text
+          x={STAGE_BOX.width / 2}
+          y={CHIP_Y + CHIP_H / 2}
           textAnchor="middle"
           dominantBaseline="central"
           fontFamily={FONT}
           fontWeight={700}
-          fontSize={72}
-          fill={color.paper}
-          opacity={label}
+          fontSize={56}
+          fill={color.muted}
+          opacity={correction}
         >
-          約30%
+          ＋
         </text>
-      </g>
-    </svg>
+        <Chip x={448} label="誤り訂正" tint={color.sub} p={correction} />
+  
+        <g transform={`translate(${STAIN.cx} ${STAIN.cy}) scale(${stain})`}>
+          <path d={stainPath} fill={color.accent} />
+          <text
+            textAnchor="middle"
+            dominantBaseline="central"
+            fontFamily={FONT}
+            fontWeight={700}
+            fontSize={72}
+            fill={color.paper}
+            opacity={label}
+          >
+            約30%
+          </text>
+        </g>
+  
+        <path
+          d={`M ${CHECK.x} ${CHECK.y + 50} L ${CHECK.x + 35} ${CHECK.y + 85} L ${CHECK.x + 95} ${CHECK.y}`}
+          fill="none"
+          stroke={color.sub}
+          strokeWidth={14}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          {...draw(check)}
+        />
+      </svg>
+    </>
   );
 };
