@@ -1,5 +1,7 @@
 # tech-shorts
 
+自分で録ったナレーションを ffmpeg で文ごとに区切り、その区切りに合わせて字幕・図・効果音（ffmpeg で合成）を Remotion で動かす、縦型の図解ショートを作るリポジトリ。
+
 ## 作り方
 
 1. `videos/<id>/script.ts` に台本を書く
@@ -21,3 +23,9 @@
 - 文の間は1秒あける
 - 言い間違えたら最初から録り直す
 - `narrate` が止まったら録り直すか、`videos/<id>/boundaries.json` に2文目以降の話し始めの秒を書く（例: `[4.4, 9.4]`）
+
+## 効果音
+
+- `Visuals.tsx` に `<Sfx name="pop" at={1} delay={8} />` のように置く。`at` と `delay` は鳴らしたい動きの `enter()` と同じ値にする
+- `pop`（要素が出る）、`tick`（文字・数字）、`miss`（×・失敗）、`done`（正解・完了）
+- 音色を変えたら `pipeline/sfx.ts` を直して `npm run sfx`
