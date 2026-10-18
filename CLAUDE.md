@@ -51,7 +51,7 @@ Studio の props で `guides: true` にすると枠を重ねて確認できる�
 ## コマンド
 - `npm run dev` Remotion Studio
 - `npm run narrate -- <id> [--draft]` ナレーション → `public/audio/<id>/`（git 管理外）
-- `npm run render -- <id>` → `out/<id>.mp4`（h264, crf 18, bt709）
+- `npm run render -- <id>` → `out/<id>.mp4`（h264, crf 18, bt709。音声は最後にリミッターでピーク -2dBFS 以下）
 - `npm run sfx` 効果音を合成し直す → `public/sfx/`
 - `npm run typecheck`
 - 新しい動画は `videos/<id>/` に script.ts と Visuals.tsx を作り、`src/Root.tsx` の `videos` に1行足す

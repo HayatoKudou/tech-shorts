@@ -9,7 +9,7 @@
     "dev": "remotion studio src/index.ts",
     "narrate": "tsx pipeline/narrate.ts",
     "sfx": "tsx pipeline/sfx.ts",
-    "render": "remotion render src/index.ts",
+    "render": "tsx pipeline/render.ts",
     "typecheck": "tsc"
   },
   "dependencies": {
