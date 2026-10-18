@@ -14,6 +14,8 @@ export type Script = {
   /** 一次情報の URL。1つ以上必須 */
   sources: [string, ...string[]];
   beats: Beat[];
+  /** public/bgm/ のファイル名。省略で既定の BGM、null で BGM なし */
+  bgm?: string | null;
 };
 
 /** 字幕1枚の上限（54px で 3 行に収まる目安） */

@@ -1,12 +1,23 @@
 import { Audio } from "@remotion/media";
 import React from "react";
-import { AbsoluteFill, type CalculateMetadataFunction, staticFile } from "remotion";
+import {
+  AbsoluteFill,
+  type CalculateMetadataFunction,
+  interpolate,
+  staticFile,
+  useVideoConfig,
+} from "remotion";
 import { BeatContext } from "./beat";
 import { Caption } from "./Caption";
 import { FONT } from "./font";
 import { type Script, validateScript } from "./script";
 import { CAPTION_BOX, color, FPS, SAFE, STAGE_BOX } from "./theme";
 import { assertTimingMatches, narrationPath, type Timing, timingPath } from "./timing";
+
+/** 既定の BGM。BGMer「昼と夜の境界」https://bgmer.net/music/436/（商用可・クレジット任意・再配布可） */
+const DEFAULT_BGM = "bgmer-436.m4a";
+/** BGM の大きさ。ファイルはナレーションと同じ -14 LUFS にそろえてあるので、ここで下げる */
+const BGM_GAIN_DB = -18;
 
 export type VideoProps = {
   /** null なら calculateMetadata が public/audio/<id>/timing.json を読んで埋める */
@@ -30,10 +41,12 @@ export const makeVideo = (script: Script, Visuals: React.FC) => {
   const component: React.FC<VideoProps> = ({ timing, guides }) => {
     if (!timing) throw new Error("timing が未解決です");
     const starts = timing.beats.map((b) => Math.round(b.start * FPS));
+    const bgm = script.bgm === undefined ? DEFAULT_BGM : script.bgm;
     return (
       <BeatContext.Provider value={starts}>
         <AbsoluteFill style={paper}>
           <Audio src={staticFile(narrationPath(script.id))} />
+          {bgm ? <Bgm file={bgm} /> : null}
           <div style={{ position: "absolute", ...STAGE_BOX }}>
             <Visuals />
           </div>
@@ -56,6 +69,25 @@ const fetchTiming = async (id: string): Promise<Timing> => {
     );
   }
   return res.json();
+};
+
+/** 動画の長さに合わせてループし、最後の 1.5 秒でフェードアウトする */
+const Bgm: React.FC<{ file: string }> = ({ file }) => {
+  const { durationInFrames, fps } = useVideoConfig();
+  const gain = 10 ** (BGM_GAIN_DB / 20);
+  return (
+    <Audio
+      src={staticFile(`bgm/${file}`)}
+      loop
+      volume={(f) =>
+        gain *
+        interpolate(f, [durationInFrames - fps * 1.5, durationInFrames], [1, 0], {
+          extrapolateLeft: "clamp",
+          extrapolateRight: "clamp",
+        })
+      }
+    />
+  );
 };
 
 /** 紙は動かさず、ドットは 2px 以上にする（投稿先の再エンコードで細い線がちらつくため） */
