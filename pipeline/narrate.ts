@@ -3,9 +3,9 @@
 //   npm run narrate -- <id>          videos/<id>/take.*（全文を1テイクで録った音声）を区切る
 //   npm run narrate -- <id> --draft  macOS の say で仮音声を作る（区切りは各文の音声長から決まる）
 //
-// 録音は「文と文の間の無音が、文中の間より十分長い」ことを使って区切る。
-// 区切りが曖昧なら止まるので、録り直すか videos/<id>/boundaries.json に
-// 2文目以降の話し始め（テイク内の秒）を N-1 個並べて手動で指定する。
+// 録音は「文と文の間の無音が、文中の間より長い」ことを使って区切る。長さで決めきれない間は
+// 文字数の割合に合うほうを選び、それでも文の長さが合わなければ止まる。そのときは録り直すか
+// videos/<id>/boundaries.json に2文目以降の話し始め（テイク内の秒）を N-1 個並べて手動で指定する。
 
 import { execFile } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
@@ -22,11 +22,11 @@ const TAIL = 0.6; // 最後の発話の後に残す間
 const LEAD = 0.12; // 字幕は次の文の話し始めより少し前に切り替える
 const DRAFT_GAP = 0.35; // 仮音声の文間
 const MIN_GAP = 0.25; // これより短い無音は区切り候補にしない
-const GAP_RATIO = 1.5; // 採用する最短の文間が、採用しない最長の間の何倍あれば区切りが明確とみなすか
+const GAP_RATIO = 1.5; // 2つの間の長さがこの倍率未満なら、長さだけで決めず文字数の割合で選ぶ
 const SHARE_RANGE = [0.5, 2]; // 文の長さ ÷ 文字数の割合 がこの範囲外なら区切りずれを疑う
 const SR = 16000; // 無音判定用のサンプルレート
 const WINDOW = 0.02; // 音量を測る窓（秒）
-const TAKE_EXTS = ["m4a", "wav", "aiff", "mp3", "caf"];
+const TAKE_EXTS = ["m4a", "wav", "aiff", "aifc", "mp3", "caf"];
 
 type Span = { start: number; end: number };
 
@@ -95,7 +95,15 @@ const splitTake = async (script: Script) => {
   const { gaps, speechStart, speechEnd } = await findGaps(take);
   const gapList = gaps.map((g) => `  ${g.start.toFixed(2)}-${g.end.toFixed(2)} (${len(g).toFixed(2)}s)`).join("\n");
 
-  // 文と文の境目（前の文の話し終わり〜次の文の話し始め）
+  // 文と文の境目（前の文の話し終わり〜次の文の話し始め）から、各文の発話区間を作る
+  const toSpeech = (bounds: Span[]): Span[] => {
+    const sorted = [...bounds].sort((a, b) => a.start - b.start);
+    return script.beats.map((_, i) => ({
+      start: i === 0 ? speechStart : sorted[i - 1].end,
+      end: i === n - 1 ? speechEnd : sorted[i].start,
+    }));
+  };
+
   let bounds: Span[];
   const manual = path.join(dir, "boundaries.json");
   if (existsSync(manual)) {
@@ -110,18 +118,21 @@ const splitTake = async (script: Script) => {
     if (ranked.length < n - 1) {
       throw new Error(`文間の無音が ${ranked.length} 個しか見つかりません（必要 ${n - 1}）。文の間を1秒ほどあけて録り直すか、${manual} で指定してください\n${gapList}`);
     }
-    const weakest = ranked[n - 2];
-    const unused = ranked[n - 1];
-    if (weakest && unused && len(weakest) < len(unused) * GAP_RATIO) {
-      throw new Error(`文間と文中の間の区別がつきません（採用する最短 ${len(weakest).toFixed(2)}s / 採用しない最長 ${len(unused).toFixed(2)}s）。文の間を長めにあけて録り直すか、${manual} で指定してください\n${gapList}`);
+    // 長い順に N-1 個を境目にする。長さが GAP_RATIO 倍以内で決めきれない間どうしは、
+    // 入れ替えると各文の長さが文字数の割合に近づくなら入れ替える（文の間を短めに読んだ箇所の救済）
+    const misfit = (b: Span[]) =>
+      Math.max(...shareRatios(script, toSpeech(b)).map((r) => Math.abs(Math.log(r))));
+    bounds = ranked.slice(0, n - 1);
+    for (const candidate of ranked.slice(n - 1)) {
+      for (let i = 0; i < bounds.length; i++) {
+        if (len(bounds[i]) >= len(candidate) * GAP_RATIO) continue;
+        const swapped = bounds.map((b, j) => (j === i ? candidate : b));
+        if (misfit(swapped) < misfit(bounds)) bounds = swapped;
+      }
     }
-    bounds = ranked.slice(0, n - 1).sort((a, b) => a.start - b.start);
   }
 
-  const speech: Span[] = script.beats.map((_, i) => ({
-    start: i === 0 ? speechStart : bounds[i - 1].end,
-    end: i === n - 1 ? speechEnd : bounds[i].start,
-  }));
+  const speech = toSpeech(bounds);
 
   const shares = shareRatios(script, speech);
   if (shares.some((r) => r < SHARE_RANGE[0] || r > SHARE_RANGE[1])) {
@@ -156,12 +167,22 @@ const findGaps = async (file: string) => {
     throw new Error(`声とノイズの差が ${(peak - floor).toFixed(0)}dB しかありません。静かな場所で録り直してください`);
   }
   const quiet = db.map((v) => v < floor + 10);
-  // クリック程度の短い音（60ms 以下）で無音が分断されないようにする
+  // 無音の中の短い音は無音として扱う。60ms 以下のクリックは常に、
+  // 150ms 以下の物音（録音開始のクリックなど）は前後 300ms 以上が無音なら、話し始めと誤認しないよう消す
+  const quietRun = (from: number, step: 1 | -1) => {
+    let k = from;
+    while (k >= 0 && k < quiet.length && quiet[k]) k += step;
+    return Math.abs(k - from);
+  };
   for (let k = 0; k < quiet.length; ) {
     if (quiet[k]) { k++; continue; }
     let e = k;
     while (e < quiet.length && !quiet[e]) e++;
-    if (k > 0 && e < quiet.length && e - k <= 3) quiet.fill(true, k, e);
+    const before = k === 0 ? Infinity : quietRun(k - 1, -1);
+    const after = e === quiet.length ? Infinity : quietRun(e, 1);
+    const click = k > 0 && e < quiet.length && e - k <= 3;
+    const isolated = e - k <= 7 && before >= 15 && after >= 15;
+    if (click || isolated) quiet.fill(true, k, e);
     k = e;
   }
 
