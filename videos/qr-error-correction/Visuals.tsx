@@ -38,6 +38,8 @@ const modules = Array.from({ length: N * N }, (_, k) => ({
 
 const CHIP_Y = Y0 + SIZE + 60;
 const CHIP_W = 260;
+// 2つのチップの間（「＋」を置く幅）
+const CHIP_GAP = 60;
 const CHIP_H = 84;
 
 const Chip: React.FC<{ x: number; label: string; tint: string; p: number }> = ({
@@ -93,7 +95,7 @@ const stainPath = (() => {
 })();
 
 // 「元に戻せる」のチェック。QR の右上の余白に描く
-const CHECK = { x: X0 + SIZE + 20, y: Y0 + 30 };
+const CHECK = { x: X0 + SIZE + 10, y: Y0 + 30, s: 0.65 };
 
 export const Visuals: React.FC = () => {
   const { enter } = useBeat();
@@ -117,7 +119,7 @@ export const Visuals: React.FC = () => {
           ))}
         </g>
   
-        <Chip x={108} label="データ" tint={color.ink} p={data} />
+        <Chip x={(STAGE_BOX.width - CHIP_GAP) / 2 - CHIP_W} label="データ" tint={color.ink} p={data} />
         <text
           x={STAGE_BOX.width / 2}
           y={CHIP_Y + CHIP_H / 2}
@@ -131,7 +133,7 @@ export const Visuals: React.FC = () => {
         >
           ＋
         </text>
-        <Chip x={448} label="誤り訂正" tint={color.sub} p={correction} />
+        <Chip x={(STAGE_BOX.width + CHIP_GAP) / 2} label="誤り訂正" tint={color.sub} p={correction} />
   
         <g transform={`translate(${STAIN.cx} ${STAIN.cy}) scale(${stain})`}>
           <path d={stainPath} fill={color.accent} />
@@ -149,7 +151,7 @@ export const Visuals: React.FC = () => {
         </g>
   
         <path
-          d={`M ${CHECK.x} ${CHECK.y + 50} L ${CHECK.x + 35} ${CHECK.y + 85} L ${CHECK.x + 95} ${CHECK.y}`}
+          d={`M ${CHECK.x} ${CHECK.y + 50 * CHECK.s} L ${CHECK.x + 35 * CHECK.s} ${CHECK.y + 85 * CHECK.s} L ${CHECK.x + 95 * CHECK.s} ${CHECK.y}`}
           fill="none"
           stroke={color.sub}
           strokeWidth={14}
